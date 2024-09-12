@@ -95,11 +95,11 @@ return_code create_version(char * filename, char * comment, file_version * resul
 	// En caso de fallar alguna validacion, retorna VERSION_ERROR
 	new = strcat(VERSIONS_DIR "/",get_file_hash(filename, hash));
 
-	result->filename = filename
-	result->comment = comment
-	result->hash = hash
+	result->filename = filename;
+	result->comment = comment;
+	result->hash = hash;
 
-	return VERSION_CREATED
+	return VERSION_CREATED;
 
 }
 
@@ -138,12 +138,12 @@ return_code add(char * filename, char * comment) {
 int add_new_version(file_version * v) {
 	FILE * fp = fopen(VERSIONS_DB_PATH, "ab");
 
-	if(fp == NULL)
-		return -1;
+	if(!fp)
+		return 0;
 	// Adiciona un nuevo registro (estructura) al archivo versions.db
-	fwrite(v, size_of(v), 1, fp);	
+	fwrite(v, size_of(file_version), 1, fp);	
 	fclose(fp);
-	return 0;
+	return 1;
 }
 
 
@@ -178,10 +178,17 @@ int copy(char * source, char * destination) {
 }
 
 int version_exists(char * filename, char * hash) {
+	char fileHash[HASH_SIZE];
 
-	// Verifica si en la bd existe un registro que coincide con filename y hash
-	
-	return 1;
+    if (get_file_hash(filename, fileHash) == NULL) {
+        return 0;  
+    }
+	// Verifica si en la bd existe un registro que coincide con filename y hash 
+    if (strcmp(fileHash, hash) == 0) {
+        return 1;  
+    }
+
+    return 0;  
 }
 
 int get(char * filename, int version) {
@@ -190,6 +197,27 @@ int get(char * filename, int version) {
 
 	//1. Abre la BD y busca el registro r que coincide con filename y version
 	//retrieve_file(r.hash, r.filename)
+
+	FILE * fp = fopen(VERSIONS_DB_PATH, "rb");
+	if(!fp)
+		return 0;
+
+	int cont = 1;
+	while(!feof(fp)) {
+		if(fread(&r, sizeof(file_version), 1, fp) != 1)
+			break;
+
+		if (r.filename == filename ) {
+			if (cont == version) {
+				copy(r.hash, r.filename);
+				return 1;
+			}
+			else
+				cont++;
+		}
+	}
+
+	fclose(fp);
 	return 0;
 }
 
