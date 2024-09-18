@@ -83,7 +83,7 @@ return_code create_version(char * filename, char * comment, file_version * resul
 
 	struct stat s;
 	char hash[HASH_SIZE];
-	char new[PATH_MAX]; 
+	char new[PATH_MAX] = ""; 
 	// Llena a estructura result recibida por referencia.
 	// Debe validar:
 	// 1. Que el archivo exista y sea un archivo regular
@@ -93,11 +93,11 @@ return_code create_version(char * filename, char * comment, file_version * resul
 	// 2. Obtiene y guarda en la estructura el HASH del archivo
 	// Llena todos los atributos de la estructura y retorna VERSION_CREATED
 	// En caso de fallar alguna validacion, retorna VERSION_ERROR
-	new = strcat(VERSIONS_DIR "/",get_file_hash(filename, hash));
+	strcpy(new, strcat(VERSIONS_DIR "/",get_file_hash(filename, hash)));
 
-	result->filename = filename;
-	result->comment = comment;
-	result->hash = hash;
+	strcpy(result->filename ,filename);
+	strcpy(result->comment ,comment);
+	strcpy(result->hash ,hash);
 
 	return VERSION_CREATED;
 
@@ -139,11 +139,11 @@ int add_new_version(file_version * v) {
 	FILE * fp = fopen(VERSIONS_DB_PATH, "ab");
 
 	if(!fp)
-		return 0;
+		return VERSION_ERROR;
 	// Adiciona un nuevo registro (estructura) al archivo versions.db
-	fwrite(v, size_of(file_version), 1, fp);	
+	fwrite(v, sizeof *v, 1, fp);	
 	fclose(fp);
-	return 1;
+	return VERSION_CREATED;
 }
 
 
@@ -178,17 +178,22 @@ int copy(char * source, char * destination) {
 }
 
 int version_exists(char * filename, char * hash) {
-	char fileHash[HASH_SIZE];
+	FILE *fp;
+	ssize_t read_count;
+	file_version v;
+	
+	if((fp = fopen(VERSIONS_DB_PATH, "r")) == NULL)
+		return -1;
 
-    if (get_file_hash(filename, fileHash) == NULL) {
-        return 0;  
-    }
-	// Verifica si en la bd existe un registro que coincide con filename y hash 
-    if (strcmp(fileHash, hash) == 0) {
-        return 1;  
-    }
+	while(read_count = fread(&v, sizeof v, 1, fp), read_count > 0) {	
+		if(strcmp(v.filename, filename) == 0 && strcmp(v.hash, hash) == 0) {
+			fclose(fp);
+			return VERSION_ALREADY_EXISTS;
+		}
+	}
 
-    return 0;  
+	fclose(fp);
+    return 1;  
 }
 
 int get(char * filename, int version) {
@@ -198,9 +203,9 @@ int get(char * filename, int version) {
 	//1. Abre la BD y busca el registro r que coincide con filename y version
 	//retrieve_file(r.hash, r.filename)
 
-	FILE * fp = fopen(VERSIONS_DB_PATH, "rb");
+	FILE * fp = fopen(VERSIONS_DB_PATH, "r");
 	if(!fp)
-		return 0;
+		return -1;
 
 	int cont = 1;
 	while(!feof(fp)) {
